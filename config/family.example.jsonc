@@ -1,0 +1,37 @@
+// Copy to config/family.local.jsonc (gitignored) and fill in your family.
+// Then run:
+//   pnpm family            # updates wrangler.deploy.jsonc and writes the seed SQL
+//   pnpm family --local    # ...and applies it to the local dev database
+//   pnpm family --remote   # ...and applies it to the deployed database
+// Safe to re-run: existing people, logins and hostnames are updated, not duplicated.
+// People added later in the admin pages are left alone.
+{
+  // The main site: login, dashboard and admin pages.
+  "mainHost": "gifts.example.com",
+  "people": [
+    {
+      "slug": "pat",
+      "name": "Pat",
+      "admin": true,
+      // Logins (Google/GitHub/email-code) that act as this person.
+      "emails": ["pat@example.com"],
+      // Public hostnames that open this person's next upcoming list.
+      "hostnames": ["pat.gifts.example.com"]
+    },
+    {
+      "slug": "casey",
+      "name": "Casey",
+      "admin": true,
+      "emails": ["casey@example.com"],
+      "hostnames": ["casey.gifts.example.com"]
+    },
+    {
+      "slug": "riley",
+      "name": "Riley",
+      "emails": [],
+      "hostnames": ["gifts.riley.example"],
+      // People who can edit this person's lists and see what's been bought (parents).
+      "managedBy": ["pat", "casey"]
+    }
+  ]
+}

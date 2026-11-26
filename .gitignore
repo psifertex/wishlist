@@ -5,3 +5,4 @@ dist/
 wrangler.deploy.jsonc
 .DS_Store
 public/capture.js
+config/*.local.jsonc
