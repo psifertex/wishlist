@@ -56,3 +56,14 @@ describe("finding the button", () => {
     expect(await admin.html("/install")).toContain("Log out");
   });
 });
+
+describe("iOS Shortcut script", () => {
+  it("serves capture.js with the site address baked in", async () => {
+    const res = await new Client(null).get("/shortcut.js");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("javascript");
+    const js = await res.text();
+    expect(js.startsWith('var __WL_ORIGIN = "http://gifts.test";')).toBe(true);
+    expect(js).toContain("completion");
+  });
+});

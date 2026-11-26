@@ -79,6 +79,15 @@ app.get("/logout", (c) => {
   return c.redirect("/");
 });
 
+// The capture script for the iOS Shortcut, with this site's address baked in
+// so the script can return the complete add-page URL.
+app.get("/shortcut.js", async (c) => {
+  const res = await c.env.ASSETS?.fetch(new URL("/capture.js", c.req.url));
+  if (!res?.ok) return c.notFound();
+  const body = `var __WL_ORIGIN = ${JSON.stringify(mainUrl(c))};\n${await res.text()}`;
+  return c.body(body, 200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-store" });
+});
+
 app.route("/", appRoutes);
 app.route("/", adminRoutes);
 app.route("/", installRoutes);

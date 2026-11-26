@@ -8,6 +8,8 @@ import type { Capture } from "./types";
 
 // Provided by the iOS Shortcuts "Run JavaScript on Web Page" action.
 declare const completion: ((result: unknown) => void) | undefined;
+// Prepended by the site when the script is fetched from /shortcut.js.
+declare const __WL_ORIGIN: string | undefined;
 
 function siteOrigin(): string | undefined {
   const s = document.currentScript as HTMLScriptElement | null;
@@ -22,11 +24,19 @@ function run() {
   } catch {
     data = { v: 1, url: location.href, title: document.title, images: [] };
   }
-  const payload = encodeCapture(data);
+  let payload: string;
+  try {
+    payload = encodeCapture(data);
+  } catch {
+    payload = encodeCapture({ v: 1, url: location.href, images: [] });
+  }
 
-  // iOS Shortcut: hand the payload back; the Shortcut opens <site>/add?d=<payload>.
+  // iOS Shortcut: return the full add-page address, so the Shortcut's next
+  // action ("Open URLs") just opens the JavaScript Result. Shortcuts must
+  // always get a completion() call, or the action hangs.
   if (typeof completion === "function") {
-    completion(payload);
+    const origin = typeof __WL_ORIGIN === "string" ? __WL_ORIGIN : undefined;
+    completion(origin ? `${origin}/add?d=${payload}` : payload);
     return;
   }
   const origin = siteOrigin();

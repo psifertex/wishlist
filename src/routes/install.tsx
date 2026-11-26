@@ -62,7 +62,7 @@ installRoutes.get("/install", async (c) => {
           </li>
           <li>
             Add the action <strong>Get Contents of URL</strong> with this address:
-            <pre class="code">{`${origin}/capture.js`}</pre>
+            <pre class="code">{`${origin}/shortcut.js`}</pre>
           </li>
           <li>
             Add the action <strong>Run JavaScript on Web Page</strong>. Shortcuts fills its first slot in for you with{" "}
@@ -70,9 +70,8 @@ installRoutes.get("/install", async (c) => {
             the sample script and insert the <strong>Contents of URL</strong> variable as the whole script.
           </li>
           <li>
-            Add the action <strong>Open URLs</strong>. Type this address, then insert the{" "}
-            <strong>JavaScript Result</strong> variable right after <code>d=</code>:
-            <pre class="code">{`${origin}/add?d=`}</pre>
+            Add the action <strong>Open URLs</strong>. It should fill in <strong>JavaScript Result</strong> by
+            itself; if not, tap the URL field and insert that variable. Nothing else goes in the field.
           </li>
         </ol>
       </section>

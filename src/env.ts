@@ -4,6 +4,8 @@ export interface Env {
   DB: D1Database;
   /** Optional: without R2, pictures are shown from the store's own image link instead of a stored copy. */
   IMAGES?: R2Bucket;
+  /** Static assets in public/ (used to serve /shortcut.js). */
+  ASSETS?: Fetcher;
   RL_PUBLIC?: RateLimit;
   RL_CLAIM?: RateLimit;
   RL_WRITE?: RateLimit;
