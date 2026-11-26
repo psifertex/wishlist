@@ -56,24 +56,26 @@ installRoutes.get("/install", async (c) => {
             Open the <strong>Shortcuts</strong> app, tap <strong>+</strong>, and name the shortcut “Add to Wishlist”.
           </li>
           <li>
-            Tap the <strong>ⓘ</strong> button, turn on <strong>Show in Share Sheet</strong>, and set it to receive{" "}
-            <strong>Safari web pages</strong>.
+            Set the first action to <strong>Receive Safari web pages from Share Sheet</strong>. Turn off every other
+            input type. (Older versions: tap <strong>ⓘ</strong>, turn on <strong>Show in Share Sheet</strong>, and
+            choose <strong>Safari web pages</strong>.)
           </li>
           <li>
             Add the action <strong>Get Contents of URL</strong> with this address:
             <pre class="code">{`${origin}/capture.js`}</pre>
           </li>
           <li>
-            Add the action <strong>Run JavaScript on Web Page</strong>. Delete the sample script and insert the{" "}
-            <strong>Contents of URL</strong> variable as the whole script.
+            Add the action <strong>Run JavaScript on Web Page</strong>. Shortcuts fills its first slot in for you with{" "}
+            <strong>Contents of URL</strong>. Tap it and change it to <strong>Shortcut Input</strong>. Then delete
+            the sample script and insert the <strong>Contents of URL</strong> variable as the whole script.
           </li>
           <li>
-            Add the action <strong>Open URLs</strong> with this address followed by the <strong>JavaScript Result</strong>{" "}
-            variable:
+            Add the action <strong>Open URLs</strong>. Type this address, then insert the{" "}
+            <strong>JavaScript Result</strong> variable right after <code>d=</code>:
             <pre class="code">{`${origin}/add?d=`}</pre>
           </li>
         </ol>
-        <p class="muted">These steps haven't been tested on a real iPhone yet.</p>
+        <p class="muted">These steps are new; tell the site admin if they don't work.</p>
       </section>
 
       <section class="card">
