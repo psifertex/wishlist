@@ -54,17 +54,66 @@ Re-running is safe. People added later in the admin pages are left alone.
 
 | Secret | Value |
 |---|---|
-| `CLOUDFLARE_API_TOKEN` | API token with: Account: Workers Scripts Edit, D1 Edit, Account Settings Read; Zone (each gift domain): Workers Routes Edit, DNS Edit |
-| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
+| `CLOUDFLARE_API_TOKEN` | A Cloudflare API token; see [Creating the Cloudflare API token](#creating-the-cloudflare-api-token) |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID; see the same section |
 | `WRANGLER_DEPLOY_JSONC` | Contents of your `wrangler.deploy.jsonc` |
 | `FAMILY_CONFIG_JSONC` | Contents of your `config/family.local.jsonc` |
 
-With the GitHub CLI:
+With the GitHub CLI (each command prompts for the value, or reads it from a file):
 
 ```sh
+gh secret set CLOUDFLARE_API_TOKEN          # paste the token when asked
+gh secret set CLOUDFLARE_ACCOUNT_ID         # paste the account ID when asked
 gh secret set WRANGLER_DEPLOY_JSONC < wrangler.deploy.jsonc
 gh secret set FAMILY_CONFIG_JSONC < config/family.local.jsonc
 ```
+
+### Creating the Cloudflare API token
+
+One token covers both the one-time setup and every deploy afterwards.
+
+1. **Before you start:** every domain you'll use must already be a zone in your Cloudflare account (its DNS is on Cloudflare). For example, the main site's domain, plus each person's own domain if they have one.
+2. Open the [API Tokens page](https://dash.cloudflare.com/profile/api-tokens) (top-right profile menu → **My Profile** → **API Tokens**).
+3. Click **Create Token**. Next to **Edit Cloudflare Workers**, click **Use template**. The template already includes most of what's needed.
+4. Change the token name at the top to something like `wishlist deploy`.
+5. Under **Permissions**, make sure these rows are present. Keep the template's rows, and use **+ Add more** for the missing ones:
+
+   | Type | Permission | Access | Why |
+   |---|---|---|---|
+   | Account | Workers Scripts | Edit | Upload the Worker |
+   | Account | D1 | Edit | Create the database and apply migrations (**not in the template; add it**) |
+   | Account | Workers R2 Storage | Edit | Create the image bucket once |
+   | Account | Account Settings | Read | Wrangler reads account details |
+   | User | User Details | Read | Wrangler checks who the token belongs to |
+   | User | Memberships | Read | Wrangler lists the accounts the token can use |
+   | Zone | Workers Routes | Edit | Attach the Worker to each hostname |
+   | Zone | DNS | Edit | Custom domains create DNS records (**not in the template; add it**) |
+   | Zone | Zone | Read | Look up each domain (**not in the template; add it**) |
+
+   The template also grants Workers KV Storage, Workers Tail and Cloudflare Pages. This project doesn't use them, so you can delete those rows.
+
+6. Under **Account Resources**, choose **Include → (your account)**.
+7. Under **Zone Resources**, choose **Include → Specific zone** and add each domain you'll use. Click **+ Add more** for each extra domain. Avoid **All zones**, so the token can't touch your other domains.
+8. Leave **Client IP Address Filtering** empty. GitHub Actions runs from changing IP addresses.
+9. Optionally set a **TTL** (an expiry date). If you do, put a reminder in your calendar to replace it.
+10. Click **Continue to summary**, check the list, then click **Create Token**. **Copy the token now**; Cloudflare only shows it once.
+11. Test it. The result should include `"status": "active"`:
+
+    ```sh
+    curl -s https://api.cloudflare.com/client/v4/user/tokens/verify \
+      -H "Authorization: Bearer <token>"
+    ```
+
+12. **Account ID:** in the dashboard, open **Workers & Pages**. The account ID is in the right sidebar (or it's the long hex string in the dashboard URL). It isn't secret, but keeping it in a secret next to the token is tidy.
+
+To use the token locally as well (for the one-time setup below), set it for your shell session without saving it in a file:
+
+```sh
+read -s CLOUDFLARE_API_TOKEN && export CLOUDFLARE_API_TOKEN
+export CLOUDFLARE_ACCOUNT_ID=<account id>
+```
+
+These permission names come from Cloudflare's dashboard as of late 2026. If a deploy fails with an authentication error (code 10000), the error names the API call that was refused; add the matching permission and rerun.
 
 To load people, logins and hostnames from the family config into the database, run the workflow manually (Actions → Test and deploy → Run workflow) with **seed** checked. It's off for normal pushes so changes made in the admin pages aren't overwritten.
 
