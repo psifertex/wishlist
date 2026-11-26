@@ -48,6 +48,26 @@ pnpm family --remote   # also loads it into the deployed database
 
 Re-running is safe. People added later in the admin pages are left alone.
 
+## Deploying from GitHub
+
+`.github/workflows/deploy.yml` tests every push and pull request, and deploys pushes to `main`: it applies D1 migrations, then runs `wrangler deploy`. Set these repository secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | API token with: Account: Workers Scripts Edit, D1 Edit, Account Settings Read; Zone (each gift domain): Workers Routes Edit, DNS Edit |
+| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
+| `WRANGLER_DEPLOY_JSONC` | Contents of your `wrangler.deploy.jsonc` |
+| `FAMILY_CONFIG_JSONC` | Contents of your `config/family.local.jsonc` |
+
+With the GitHub CLI:
+
+```sh
+gh secret set WRANGLER_DEPLOY_JSONC < wrangler.deploy.jsonc
+gh secret set FAMILY_CONFIG_JSONC < config/family.local.jsonc
+```
+
+To load people, logins and hostnames from the family config into the database, run the workflow manually (Actions → Test and deploy → Run workflow) with **seed** checked. It's off for normal pushes so changes made in the admin pages aren't overwritten.
+
 ## Self-hosting
 
 A step-by-step guide (Cloudflare setup, required API token scopes, and instructions you can hand to an agent) is planned before the first release. In the meantime, `wrangler.deploy.example.jsonc` lists every setting.

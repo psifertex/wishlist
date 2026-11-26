@@ -1,0 +1,73 @@
+name: Test and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: "Also load people, logins and hostnames from the family config into the database"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:capture
+      - run: pnpm typecheck
+      - run: pnpm test
+
+  deploy:
+    needs: test
+    # Only pushes to main (or a manual run on main) deploy. Pull requests,
+    # including ones from forks, never see the secrets below.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Write private config from secrets
+        env:
+          WRANGLER_DEPLOY_JSONC: ${{ secrets.WRANGLER_DEPLOY_JSONC }}
+          FAMILY_CONFIG_JSONC: ${{ secrets.FAMILY_CONFIG_JSONC }}
+        run: |
+          test -n "$WRANGLER_DEPLOY_JSONC" || { echo "::error::WRANGLER_DEPLOY_JSONC secret is not set"; exit 1; }
+          test -n "$FAMILY_CONFIG_JSONC" || { echo "::error::FAMILY_CONFIG_JSONC secret is not set"; exit 1; }
+          printf '%s\n' "$WRANGLER_DEPLOY_JSONC" > wrangler.deploy.jsonc
+          printf '%s\n' "$FAMILY_CONFIG_JSONC" > config/family.local.jsonc
+
+      # Syncs routes and MAIN_HOST from the family config and builds the seed SQL.
+      - run: pnpm family
+      - run: pnpm build:capture
+      - run: pnpm exec wrangler d1 migrations apply DB --remote -c wrangler.deploy.jsonc
+      - run: pnpm exec wrangler deploy -c wrangler.deploy.jsonc
+
+      # Off by default so names or admin roles changed in the app aren't overwritten on every deploy.
+      - name: Load family config into the database
+        if: inputs.seed
+        run: pnpm exec wrangler d1 execute DB --remote -c wrangler.deploy.jsonc --file=.wrangler/family-seed.sql

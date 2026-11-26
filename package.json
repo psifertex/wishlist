@@ -2,6 +2,7 @@
   "name": "wishlist",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@12.3.4",
   "scripts": {
     "dev": "pnpm build:capture && wrangler dev",
     "build:capture": "pnpm --filter @wishlist/capture build",
