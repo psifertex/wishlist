@@ -11,6 +11,7 @@ import type { AppEnv, Env } from "./env";
 import { devAuthEnabled } from "./lib/auth";
 import { adminRoutes } from "./routes/admin";
 import { appRoutes } from "./routes/app";
+import { installRoutes } from "./routes/install";
 import { publicRoutes } from "./routes/public";
 import { Message } from "./views/layout";
 
@@ -48,6 +49,7 @@ app.get("/dev/login", (c) => {
 
 app.route("/", appRoutes);
 app.route("/", adminRoutes);
+app.route("/", installRoutes);
 app.route("/", publicRoutes);
 
 app.notFound((c) => c.html(<Message title="Not found">There's nothing here.</Message>, 404));

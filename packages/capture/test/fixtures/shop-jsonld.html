@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head>
+<title>Cozy Socks – Example Shop</title>
+<meta property="og:title" content="Cozy Socks"/>
+<meta property="og:image" content="https://cdn.example-shop.com/socks-og.jpg"/>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Organization","name":"Example Shop"},
+ {"@type":"ProductGroup","name":"Cozy Socks","image":["https://cdn.example-shop.com/socks-1.jpg"],
+  "hasVariant":[
+   {"@type":"Product","@id":"/products/socks?variant=111","name":"Cozy Socks - Red / S","image":"https://cdn.example-shop.com/socks-red.jpg","offers":{"@type":"Offer","price":"12.00","priceCurrency":"USD"}},
+   {"@type":"Product","@id":"/products/socks?variant=222","name":"Cozy Socks - Blue / M","image":"https://cdn.example-shop.com/socks-blue.jpg","offers":{"@type":"Offer","price":"14.50","priceCurrency":"USD"}}
+  ]}
+]}
+</script>
+</head><body>
+<h1>Cozy Socks</h1>
+<fieldset><legend>Color</legend>
+ <input type="radio" name="Color" id="c1" value="Red"/><label for="c1">Red</label>
+ <input type="radio" name="Color" id="c2" value="Blue" checked/><label for="c2">Blue</label>
+</fieldset>
+<label for="size">Size</label><select id="size" name="Size"><option>S</option><option selected>M</option></select>
+</body></html>

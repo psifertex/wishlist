@@ -16,12 +16,15 @@ export const Layout: FC<{
       <meta name="robots" content="noindex" />
       <title>{title}</title>
       <link rel="stylesheet" href="/styles.css" />
+      <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       {head}
     </head>
     <body>
       <header class="top">
         <a class="brand" href={`${mainUrl}/`}>
-          🎁 Wishlist
+          <img src="/logo.svg" alt="" />
+          Wishlist
         </a>
         <nav>
           {viewer ? (

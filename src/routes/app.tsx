@@ -18,6 +18,7 @@ import {
 } from "../db/schema";
 import type { AppEnv, Viewer } from "../env";
 import { canEditPerson, resolveLogin, verifiedEmail } from "../lib/auth";
+import { decodeCapture, openLibraryCover } from "../lib/capture";
 import { newId } from "../lib/ids";
 import { imageUrl, saveImageBytes, saveImageFromUrl } from "../lib/images";
 import { CAPS, isRateLimited } from "../lib/limits";
@@ -596,11 +597,43 @@ function ItemFields(props: { item?: Partial<Item>; priceRequired?: boolean }) {
       <label class="check">
         <input type="checkbox" name="priority" value="1" checked={(it.priority ?? 0) > 0} /> I really want this
       </label>
-      <label for="image_url">Image link</label>
-      <input id="image_url" type="url" name="image_url" maxlength={2000} value={it.sourceImageUrl ?? ""} />
+      {it.asin && <input type="hidden" name="asin" value={it.asin} />}
+    </>
+  );
+}
+
+/**
+ * Image choice (R24): pick one of the captured images or none, or upload a
+ * photo. public/add.js downloads and shrinks the chosen image in the browser
+ * when the store allows it; otherwise the Worker downloads it (R27a).
+ */
+function ImageFields(props: { candidates?: string[]; keepLabel?: string }) {
+  const candidates = props.candidates ?? [];
+  return (
+    <fieldset class="card">
+      <legend>Picture</legend>
+      {candidates.length > 0 ? (
+        <div class="picker">
+          {candidates.map((src, i) => (
+            <label class="pick">
+              <input type="radio" name="image_url" value={src} checked={i === 0} />
+              <img src={src} alt={`Option ${i + 1}`} loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('label').remove()" />
+            </label>
+          ))}
+          <label class="pick none">
+            <input type="radio" name="image_url" value="" />
+            <span>No picture</span>
+          </label>
+        </div>
+      ) : (
+        <>
+          <label for="image_url">Image link</label>
+          <input id="image_url" type="url" name="image_url" maxlength={2000} placeholder={props.keepLabel ?? "https://…"} />
+        </>
+      )}
       <label for="image_file">…or upload a photo</label>
       <input id="image_file" type="file" name="image_file" accept="image/*" />
-    </>
+    </fieldset>
   );
 }
 
@@ -644,11 +677,30 @@ appRoutes.get("/add", async (c) => {
   const { ppl, ls } = await editableLists(db, viewer);
   const selected = c.req.query("list");
   const names = new Map(ppl.map((p) => [p.id, p.id === viewer.person.id ? "My" : `${p.displayName}'s`]));
+
+  // Pre-fill from the capture script (?d=) or the CSP fallback (?url=&title=).
+  const cap = decodeCapture(c.req.query("d"));
+  const fallbackUrl = c.req.query("url");
+  const prefill: Partial<Item> = cap
+    ? {
+        title: cap.title,
+        url: cap.url,
+        priceCents: cap.priceCents ?? null,
+        variantText: cap.variant ?? null,
+        format: cap.format ?? null,
+        isbn: cap.isbn ?? null,
+        asin: cap.asin ?? null,
+      }
+    : { title: c.req.query("title")?.slice(0, 200), url: fallbackUrl && /^https?:\/\//.test(fallbackUrl) ? fallbackUrl : null };
+  const candidates = cap ? [...cap.images, ...(cap.isbn ? [openLibraryCover(cap.isbn)] : [])] : [];
+  // R24: a captured item must have a price; ask for it when detection failed.
+  const priceRequired = !!cap;
   return c.html(
-    <Layout title="Add an item" viewer={viewer}>
+    <Layout title="Add an item" viewer={viewer} head={<script src="/add.js" defer></script>}>
       <h1>Add an item</h1>
       <Flash msg={c.req.query("err")} kind="error" />
-      <form method="post" action="/add" enctype="multipart/form-data" class="card">
+      {cap && cap.priceCents == null && <p class="flash">We couldn't find the price on that page. Please type it in.</p>}
+      <form method="post" action="/add" enctype="multipart/form-data" class="card" data-image-form>
         <label for="list">Add to</label>
         <select id="list" name="list" required>
           {ls.map((l) => (
@@ -657,7 +709,8 @@ appRoutes.get("/add", async (c) => {
             </option>
           ))}
         </select>
-        <ItemFields />
+        <ItemFields item={prefill} priceRequired={priceRequired} />
+        <ImageFields candidates={candidates} />
         <p>
           <button class="primary" type="submit">
             Add to list
@@ -715,16 +768,17 @@ appRoutes.get("/app/items/:id", async (c) => {
   const img = imageUrl(c.env, item.imageKey);
   const back = c.req.query("list");
   return c.html(
-    <Layout title={item.title} viewer={viewer}>
+    <Layout title={item.title} viewer={viewer} head={<script src="/add.js" defer></script>}>
       <p class="muted">
         <a href={back ? `/app/lists/${back}` : "/app"}>Back</a>
       </p>
       <h1>Edit item</h1>
       <Flash msg={c.req.query("err")} kind="error" />
       {img && <img src={img} alt="" style="max-width:160px;border-radius:8px" />}
-      <form method="post" action={`/app/items/${item.id}`} enctype="multipart/form-data" class="card">
+      <form method="post" action={`/app/items/${item.id}`} enctype="multipart/form-data" class="card" data-image-form>
         <input type="hidden" name="back" value={back ?? ""} />
         <ItemFields item={item} />
+        <ImageFields keepLabel={img ? "Leave empty to keep the current picture" : undefined} />
         {img && (
           <label class="check">
             <input type="checkbox" name="remove_image" value="1" /> Remove the current image

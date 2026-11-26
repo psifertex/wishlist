@@ -370,6 +370,23 @@ seats, Turnstile free, and cron triggers included.
 
 Ideas deliberately left out of v1:
 
+- **Import from other wishlist services.** None of the popular services seem
+  to offer an official export or API (checked 2026-11-26), so the plan is to
+  reuse the capture script: run it on a list page and it reads every item.
+  Targets, in rough order:
+  - **Amazon wish lists** (`/hz/wishlist/ls/…`): the script scrolls to load
+    every item, then reads title, ASIN, price, image, and the "comments",
+    quantity and priority fields Amazon shows. Third-party exporters exist
+    (browser extensions, userscripts), which suggests this is feasible, and
+    their output could serve as test data.
+  - **Giftlist.com**
+  - **Giftster, Elfster, MyRegistry, Giftful:** popular family and registry
+    apps; support whichever ones family members actually use.
+  - **CSV/JSON upload** as a catch-all, with a documented column format, so
+    anything a third-party exporter produces can be mapped in.
+
+  Imported items go through the same review screen as captured ones, one
+  list at a time, with checkboxes to skip items.
 - **Referral codes per domain:** append our own affiliate tag (e.g. Amazon
   Associates `tag=`) to outbound store links. The tag is chosen per public
   hostname or per Person, so each family domain can carry its own. Needs the
