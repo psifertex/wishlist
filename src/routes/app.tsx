@@ -830,9 +830,14 @@ appRoutes.post("/app/items/:id", async (c) => {
     })
     .where(eq(items.id, item.id));
 
-  // List membership: only the owner's lists.
+  // List membership. The form only shows the owner's active lists, so only
+  // those are changed; memberships on archived lists are left as they are.
   const wanted = new Set(all(form, "lists"));
-  const ownerLists = await db.select({ id: lists.id }).from(lists).where(eq(lists.personId, item.personId)).all();
+  const ownerLists = await db
+    .select({ id: lists.id })
+    .from(lists)
+    .where(and(eq(lists.personId, item.personId), isNull(lists.archivedAt)))
+    .all();
   const current = new Set(
     (await db.select({ id: listItems.listId }).from(listItems).where(eq(listItems.itemId, item.id)).all()).map((r) => r.id),
   );

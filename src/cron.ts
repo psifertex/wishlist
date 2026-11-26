@@ -33,13 +33,19 @@ export async function runDaily(env: Env, now = Date.now()): Promise<{ received: 
 
   // Owner-deleted items whose claims were all undone.
   const hidden = await db
-    .select({ id: items.id })
+    .select({ id: items.id, imageKey: items.imageKey })
     .from(items)
     .where(and(isNull(items.receivedAt), lt(items.ownerHiddenAt, now)))
     .all();
   const stillClaimed = new Set(rows.map((r) => r.item.id));
-  const purge = hidden.map((h) => h.id).filter((id) => !stillClaimed.has(id));
-  if (purge.length) await db.delete(items).where(inArray(items.id, purge));
+  const purgeRows = hidden.filter((h) => !stillClaimed.has(h.id));
+  const purge = purgeRows.map((h) => h.id);
+  if (purge.length) {
+    await db.delete(items).where(inArray(items.id, purge));
+    // Their pictures too, so deleted items don't leave paid-for storage behind.
+    const keys = purgeRows.map((h) => h.imageKey).filter((k): k is string => !!k);
+    for (let i = 0; i < keys.length; i += 1000) await env.IMAGES.delete(keys.slice(i, i + 1000));
+  }
 
   // Usage counters older than 30 days aren't needed.
   const cutoff = new Date(now - 30 * DAY_MS).toISOString().slice(0, 10);

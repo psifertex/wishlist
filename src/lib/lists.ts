@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, gte, inArray, isNull, or } from "drizzle-orm";
 import type { Db } from "../db";
 import { claims, items, listItems, lists, type Claim, type Item, type List } from "../db/schema";
 import type { Viewer } from "../env";
@@ -113,6 +113,35 @@ export async function itemViewsFor(
     out.push({ item, position, claims: cs, claimedQty, remainingQty: Math.max(0, item.quantity - claimedQty) });
   }
   return out;
+}
+
+/**
+ * Claims this buyer (browser token or logged-in person) still holds on a
+ * person's items that aren't shown on the current list: the item was taken off
+ * the list, the list was archived, or it's on another list. Without this, a
+ * buyer could lose sight of a live claim and never be able to undo it.
+ */
+export async function myOtherClaims(db: Db, personId: string, shownItemIds: string[], p: Perspective): Promise<ItemView[]> {
+  const mine = [
+    p.anonTokenHash ? eq(claims.anonTokenHash, p.anonTokenHash) : undefined,
+    p.viewer ? eq(claims.buyerPersonId, p.viewer.person.id) : undefined,
+  ].filter((x) => x !== undefined);
+  if (mine.length === 0 || isOwnerView(personId, p)) return [];
+  const rows = await db
+    .select({ item: items, claim: claims })
+    .from(claims)
+    .innerJoin(items, eq(items.id, claims.itemId))
+    .where(and(eq(items.personId, personId), isNull(claims.revokedAt), isNull(items.receivedAt), or(...mine)))
+    .all();
+  const byItem = new Map<string, ItemView>();
+  for (const { item, claim } of rows) {
+    if (shownItemIds.includes(item.id)) continue;
+    const v = byItem.get(item.id) ?? { item, position: 0, claims: [], claimedQty: 0, remainingQty: 0 };
+    v.claims.push({ claim, revealed: false, mine: true });
+    v.claimedQty += claim.quantity;
+    byItem.set(item.id, v);
+  }
+  return [...byItem.values()];
 }
 
 /** Live (non-revoked) claimed quantity for an item, regardless of viewer. */

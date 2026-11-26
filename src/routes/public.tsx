@@ -7,7 +7,7 @@ import type { AppEnv, Viewer } from "../env";
 import { optionalViewer } from "../lib/auth";
 import { newId, newToken, sha256Hex } from "../lib/ids";
 import { imageUrl } from "../lib/images";
-import { claimedQuantity, isOwnerView, listItemViews, targetList, type ItemView } from "../lib/lists";
+import { claimedQuantity, isOwnerView, listItemViews, myOtherClaims, targetList, type ItemView } from "../lib/lists";
 import { clientIp, consumeBudget, isRateLimited } from "../lib/limits";
 import { formatCents } from "../lib/money";
 import { formatEventDate, localDate } from "../lib/time";
@@ -99,8 +99,7 @@ publicRoutes.post("/api/claim", async (c) => {
   const viewer = await viewerFor(c);
   if (viewer && viewer.person.id === row.list.personId) return fail("You can't claim items on your own list.");
 
-  const remaining = row.item.quantity - (await claimedQuantity(db, itemId));
-  if (remaining <= 0) return fail("Someone else is already getting that one.");
+  if ((await claimedQuantity(db, itemId)) >= row.item.quantity) return fail("Someone else is already getting that one.");
   if (!(await consumeBudget(c.env.DB, "claim"))) return fail("Too many claims today; please try again tomorrow.");
 
   let token = getCookie(c, BUYER_COOKIE);
@@ -109,16 +108,17 @@ publicRoutes.post("/api/claim", async (c) => {
     setCookie(c, BUYER_COOKIE, token, cookieOpts(c));
   }
   setCookie(c, NAME_COOKIE, encodeURIComponent(buyerName), { ...cookieOpts(c), httpOnly: false });
-  await db.insert(claims).values({
+  const inserted = await insertClaimIfAvailable(c.env.DB, {
     id: newId(),
     itemId,
     listId,
-    quantity: Math.min(quantity, remaining),
+    quantity,
     buyerName,
     buyerPersonId: viewer?.person.id ?? null,
     anonTokenHash: await sha256Hex(token),
     createdAt: Date.now(),
   });
+  if (!inserted) return fail("Someone else just claimed that one.");
   return c.redirect(`${back}#item-${itemId}`);
 });
 
@@ -153,6 +153,40 @@ publicRoutes.get("/:a/:b?", async (c) => {
   if (!person) return c.notFound();
   return renderPersonList(c, person, b ?? null);
 });
+
+/**
+ * Inserts a claim only if enough quantity is still unclaimed, as one SQL
+ * statement. D1 runs each statement atomically, so two buyers racing for the
+ * last unit can't both succeed (the earlier read is only for a friendly
+ * message). The quantity is clamped to what's left. Returns false when
+ * nothing was left.
+ */
+async function insertClaimIfAvailable(
+  d1: D1Database,
+  cl: {
+    id: string;
+    itemId: string;
+    listId: string;
+    quantity: number;
+    buyerName: string;
+    buyerPersonId: string | null;
+    anonTokenHash: string;
+    createdAt: number;
+  },
+): Promise<boolean> {
+  const res = await d1
+    .prepare(
+      `INSERT INTO claims (id, item_id, list_id, quantity, buyer_name, buyer_person_id, anon_token_hash, created_at)
+       SELECT ?1, i.id, ?3, MIN(?4, i.quantity - t.claimed), ?5, ?6, ?7, ?8
+       FROM items i,
+            (SELECT COALESCE(SUM(quantity), 0) AS claimed FROM claims WHERE item_id = ?2 AND revoked_at IS NULL) t
+       WHERE i.id = ?2 AND i.received_at IS NULL AND i.owner_hidden_at IS NULL
+         AND i.quantity - t.claimed > 0`,
+    )
+    .bind(cl.id, cl.itemId, cl.listId, cl.quantity, cl.buyerName, cl.buyerPersonId, cl.anonTokenHash, cl.createdAt)
+    .run();
+  return (res.meta.changes ?? 0) === 1;
+}
 
 function withParam(path: string, key: string, value: string): string {
   const u = new URL(path, "http://x");
@@ -222,6 +256,7 @@ async function renderPersonList(c: Context<AppEnv>, person: Person, listSlug: st
       .all(),
   ]);
   const savedName = decodeURIComponent(getCookie(c, NAME_COOKIE) ?? "");
+  const elsewhere = wantsBuying ? await myOtherClaims(db, person.id, views.map((v) => v.item.id), perspective) : [];
   const back = wantsBuying ? `${here}?buying=1` : here;
 
   return c.html(
@@ -273,6 +308,17 @@ async function renderPersonList(c: Context<AppEnv>, person: Person, listSlug: st
           ))}
         </ul>
       )}
+      {elsewhere.length > 0 && (
+        <>
+          <h2>Also getting for {person.displayName}</h2>
+          <p class="muted">These aren't on this list any more, but you said you're getting them.</p>
+          <ul class="items">
+            {elsewhere.map((v) => (
+              <ItemCard c={c} v={v} list={list} buying={wantsBuying} owner={false} back={back} savedName={savedName} offList />
+            ))}
+          </ul>
+        </>
+      )}
     </Layout>,
   );
 }
@@ -285,8 +331,10 @@ function ItemCard(props: {
   owner: boolean;
   back: string;
   savedName: string;
+  /** Shown only because this buyer has a claim on it; can't be claimed from here. */
+  offList?: boolean;
 }) {
-  const { c, v, list, buying, owner, back, savedName } = props;
+  const { c, v, list, buying, owner, back, savedName, offList } = props;
   const { item } = v;
   const img = imageUrl(c.env, item.imageKey);
   const done = v.remainingQty === 0;
@@ -343,7 +391,7 @@ function ItemCard(props: {
                 </button>
               </form>
             ))}
-        {buying && !done && !item.ownerHiddenAt && (
+        {buying && !done && !item.ownerHiddenAt && !offList && (
           <form class="inline" method="post" action="/api/claim">
             <input type="hidden" name="back" value={back} />
             <input type="hidden" name="list" value={list.id} />

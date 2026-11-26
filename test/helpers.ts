@@ -5,12 +5,15 @@ export const MAIN = "http://gifts.test";
 
 export class Client {
   cookies = new Map<string, string>();
+  /** Each client gets its own IP so per-IP rate limits don't leak between tests. */
+  ip = `10.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`;
   constructor(public email: string | null, public origin = MAIN) {}
 
   async fetch(path: string, init: RequestInit = {}): Promise<Response> {
     const url = path.startsWith("http") ? path : `${this.origin}${path}`;
     const headers = new Headers(init.headers);
     headers.set("x-dev-email", this.email ?? "-");
+    headers.set("cf-connecting-ip", this.ip);
     if (this.cookies.size) headers.set("cookie", [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; "));
     if (init.method === "POST") headers.set("origin", new URL(url).origin);
     const res = await app.request(url, { ...init, headers, redirect: "manual" }, env);
