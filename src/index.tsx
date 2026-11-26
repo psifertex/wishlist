@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { setCookie } from "hono/cookie";
+import { deleteCookie, setCookie } from "hono/cookie";
 import { csrf } from "hono/csrf";
 import { HTTPException } from "hono/http-exception";
 import { secureHeaders } from "hono/secure-headers";
@@ -13,6 +13,7 @@ import { devAuthEnabled } from "./lib/auth";
 import { CAPS } from "./lib/limits";
 import { adminRoutes } from "./routes/admin";
 import { appRoutes } from "./routes/app";
+import { mainUrl } from "./routes/util";
 import { installRoutes } from "./routes/install";
 import { publicRoutes } from "./routes/public";
 import { Message } from "./views/layout";
@@ -60,6 +61,22 @@ app.get("/dev/login", (c) => {
   if (!devAuthEnabled(c.env)) return c.notFound();
   setCookie(c, "dev_email", c.req.query("email") ?? "-", { path: "/", httpOnly: true, sameSite: "Lax" });
   return c.redirect("/app");
+});
+
+// Log out (works from any of the site's hostnames). Access keeps two sessions:
+// this site's CF_Authorization cookie and the team-wide session at the team
+// domain. Clearing only the first would sign straight back in as the same
+// account, so after clearing it we send the browser to the team logout, which
+// ends both and shows the login-method choice next time.
+app.get("/logout", (c) => {
+  if (c.get("site").kind !== "main") return c.redirect(`${mainUrl(c)}/logout`);
+  const secure = new URL(c.req.url).protocol === "https:";
+  deleteCookie(c, "CF_Authorization", { path: "/", secure });
+  deleteCookie(c, "dev_email", { path: "/" });
+  if (c.env.ACCESS_TEAM_DOMAIN && !devAuthEnabled(c.env)) {
+    return c.redirect(`https://${c.env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/logout`);
+  }
+  return c.redirect("/");
 });
 
 app.route("/", appRoutes);

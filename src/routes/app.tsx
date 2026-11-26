@@ -81,6 +81,7 @@ const requireLogin = createMiddleware<AppEnv>(async (c, next) => {
             <button type="submit">Save</button>
           </p>
         </form>
+        <SwitchAccount email={email} />
       </Message>,
       403,
     );
@@ -89,6 +90,7 @@ const requireLogin = createMiddleware<AppEnv>(async (c, next) => {
     return c.html(
       <Message title="Not available right now">
         <p>Too many people are waiting for approval. Please ask a family admin to add you.</p>
+        <SwitchAccount email={email} />
       </Message>,
       403,
     );
@@ -96,10 +98,20 @@ const requireLogin = createMiddleware<AppEnv>(async (c, next) => {
   return c.html(
     <Message title="Not approved">
       <p>This login hasn't been approved. Ask a family admin if you think that's a mistake.</p>
+      <SwitchAccount email={email} />
     </Message>,
     403,
   );
 });
+
+/** Shown wherever someone may be signed in with the wrong account. */
+function SwitchAccount({ email }: { email: string }) {
+  return (
+    <p class="muted">
+      Signed in as {email}. Wrong account? <a href="/logout">Log out</a> and sign in with another one.
+    </p>
+  );
+}
 
 appRoutes.use("/app", requireLogin);
 appRoutes.use("/app/*", requireLogin);

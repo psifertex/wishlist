@@ -197,3 +197,25 @@ describe("hostnames and reveal", () => {
     expect(await admin.html(`/app/received`)).toContain("Mom");
   });
 });
+
+describe("logout", () => {
+  it("clears the site login cookie and redirects", async () => {
+    const res = await new Client(ADMIN).get("/logout");
+    expect(res.status).toBe(302);
+    const cookies = res.headers.getSetCookie().join("\n");
+    expect(cookies).toMatch(/CF_Authorization=;.*Max-Age=0/);
+    // Person hostnames send you to the main site's logout.
+    const { person } = await bootstrap();
+    const admin = new Client(ADMIN);
+    await admin.post("/app/admin/hostnames", { op: "add", person: person.id, hostname: "me.example" });
+    const r2 = await new Client(null, "http://me.example").get("/logout");
+    expect(r2.headers.get("location")).toBe("http://gifts.test/logout");
+  });
+
+  it("offers a way to switch accounts while waiting for approval", async () => {
+    await bootstrap();
+    const html = await (await new Client("someone@example.com").get("/app")).text();
+    expect(html).toContain('href="/logout"');
+    expect(await new Client(ADMIN).html("/app")).toContain("Log out");
+  });
+});
