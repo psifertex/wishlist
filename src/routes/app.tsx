@@ -662,6 +662,7 @@ async function imageFromForm(
 ): Promise<{ key?: string; source?: string | null; error?: string }> {
   const file = form.image_file;
   if (file instanceof File && file.size > 0) {
+    if (file.size > CAPS.imageBytes) return { error: "That photo is larger than 2 MB." };
     const r = await saveImageBytes(c.env, await file.arrayBuffer(), file.type);
     return r.ok ? { key: r.key, source: null } : { error: r.reason };
   }

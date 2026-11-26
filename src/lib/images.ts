@@ -45,8 +45,45 @@ export async function saveImageFromUrl(env: Env, url: string): Promise<SaveImage
   } catch {
     return { ok: false, reason: "Couldn't download that image." };
   }
-  if (!res.ok) return { ok: false, reason: `The store refused the image download (${res.status}).` };
+  if (!res.ok) {
+    await res.body?.cancel();
+    return { ok: false, reason: `The store refused the image download (${res.status}).` };
+  }
   const len = Number(res.headers.get("content-length") ?? "0");
-  if (len > CAPS.imageBytes) return { ok: false, reason: "That image is larger than 2 MB." };
-  return saveImageBytes(env, await res.arrayBuffer(), res.headers.get("content-type") ?? "");
+  if (len > CAPS.imageBytes) {
+    await res.body?.cancel();
+    return { ok: false, reason: "That image is larger than 2 MB." };
+  }
+  // Content-Length can be missing or wrong, so the limit is enforced while reading.
+  const bytes = await readAtMost(res.body, CAPS.imageBytes);
+  if (!bytes) return { ok: false, reason: "That image is larger than 2 MB." };
+  return saveImageBytes(env, bytes, res.headers.get("content-type") ?? "");
+}
+
+/**
+ * Reads a stream into memory, giving up (and cancelling the stream) as soon as
+ * more than `limit` bytes arrive. Returns null when the limit was exceeded.
+ */
+export async function readAtMost(body: ReadableStream<Uint8Array> | null, limit: number): Promise<ArrayBuffer | null> {
+  if (!body) return new ArrayBuffer(0);
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.byteLength;
+  }
+  return out.buffer;
 }

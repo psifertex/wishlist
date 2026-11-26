@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { setCookie } from "hono/cookie";
 import { csrf } from "hono/csrf";
 import { HTTPException } from "hono/http-exception";
@@ -9,6 +10,7 @@ import { getDb } from "./db";
 import { hostnames, people } from "./db/schema";
 import type { AppEnv, Env } from "./env";
 import { devAuthEnabled } from "./lib/auth";
+import { CAPS } from "./lib/limits";
 import { adminRoutes } from "./routes/admin";
 import { appRoutes } from "./routes/app";
 import { installRoutes } from "./routes/install";
@@ -20,6 +22,19 @@ export const app = new Hono<AppEnv>();
 app.use(secureHeaders({ crossOriginOpenerPolicy: false, referrerPolicy: "strict-origin-when-cross-origin" }));
 // Rejects cross-site form posts (Origin must match this host).
 app.use(csrf());
+
+// Caps request bodies before anything parses them (R32). Only the item forms
+// carry a photo; everything else is a few small fields. bodyLimit also counts
+// bytes on bodies sent without a Content-Length.
+const tooLarge = (c: Context) => c.text("That upload is too large.", 413);
+const smallBody = bodyLimit({ maxSize: 64 * 1024, onError: tooLarge });
+const photoBody = bodyLimit({ maxSize: CAPS.imageBytes + 256 * 1024, onError: tooLarge });
+app.use(async (c, next) => {
+  if (c.req.method === "GET" || c.req.method === "HEAD") return next();
+  const path = new URL(c.req.url).pathname;
+  const hasPhoto = path === "/add" || /^\/app\/items\/[^/]+$/.test(path);
+  return (hasPhoto ? photoBody : smallBody)(c, next);
+});
 
 // Host routing (R18-R21): the main site, or a person's public hostname.
 app.use(async (c, next) => {
