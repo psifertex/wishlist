@@ -61,8 +61,9 @@ jobs:
           printf '%s\n' "$WRANGLER_DEPLOY_JSONC" > wrangler.deploy.jsonc
           printf '%s\n' "$FAMILY_CONFIG_JSONC" > config/family.local.jsonc
 
-      # Syncs routes and MAIN_HOST from the family config and builds the seed SQL.
-      - run: pnpm family
+      # Syncs MAIN_HOST and builds the seed SQL. --no-routes leaves custom domains
+      # alone, so the CI token needs no zone permissions (see README).
+      - run: pnpm family --no-routes
       - run: pnpm build:capture
       - run: pnpm exec wrangler d1 migrations apply DB --remote -c wrangler.deploy.jsonc
       - run: pnpm exec wrangler deploy -c wrangler.deploy.jsonc

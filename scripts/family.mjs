@@ -3,13 +3,16 @@
 //   - sets routes and MAIN_HOST in wrangler.deploy.jsonc (created from the example if missing)
 //   - writes .wrangler/family-seed.sql with people, logins, admins, managers and hostnames
 //   - with --local or --remote, runs that SQL against the D1 database
-// Usage: pnpm family [--local | --remote] [--config path]
+// Usage: pnpm family [--local | --remote] [--no-routes] [--config path]
+//   --no-routes: remove routes from wrangler.deploy.jsonc instead of writing them. CI uses this so its
+//   token needs no zone permissions; custom domains are attached once during setup and left alone.
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { applyEdits, modify, parse, printParseErrorCode } from "jsonc-parser";
 
 const args = process.argv.slice(2);
+const noRoutes = args.includes("--no-routes");
 const target = args.includes("--remote") ? "remote" : args.includes("--local") ? "local" : null;
 const configPath = args.includes("--config") ? args[args.indexOf("--config") + 1] : "config/family.local.jsonc";
 
@@ -78,10 +81,10 @@ if (!existsSync(deployPath)) {
 let deployText = readFileSync(deployPath, "utf8");
 const fmt = { formattingOptions: { insertSpaces: true, tabSize: 2 } };
 const routes = [...allHosts].map((pattern) => ({ pattern, custom_domain: true }));
-deployText = applyEdits(deployText, modify(deployText, ["routes"], routes, fmt));
+deployText = applyEdits(deployText, modify(deployText, ["routes"], noRoutes ? undefined : routes, fmt));
 deployText = applyEdits(deployText, modify(deployText, ["vars", "MAIN_HOST"], config.mainHost, fmt));
 writeFileSync(deployPath, deployText);
-console.log(`Updated ${deployPath}: MAIN_HOST and ${routes.length} routes.`);
+console.log(`Updated ${deployPath}: MAIN_HOST and ${noRoutes ? "no routes (--no-routes)" : `${routes.length} routes`}.`);
 
 // ------------------------------------------------------------------ seed SQL
 const q = (s) => (s == null ? "NULL" : `'${String(s).replace(/'/g, "''")}'`);
