@@ -75,7 +75,6 @@ installRoutes.get("/install", async (c) => {
             <pre class="code">{`${origin}/add?d=`}</pre>
           </li>
         </ol>
-        <p class="muted">These steps are new; tell the site admin if they don't work.</p>
       </section>
 
       <section class="card">
