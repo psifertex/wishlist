@@ -735,6 +735,12 @@ appRoutes.get("/add", async (c) => {
       <h1>Add an item</h1>
       <Flash msg={c.req.query("err")} kind="error" />
       {cap && cap.priceCents == null && <p class="flash">We couldn't find the price on that page. Please type it in.</p>}
+      {!cap && (
+        <p class="muted">
+          Tip: add things straight from a store page with the <a href="/install">Add to Wishlist button</a>. It fills in
+          the price, pictures and options for you.
+        </p>
+      )}
       <form method="post" action="/add" enctype="multipart/form-data" class="card" data-image-form>
         <label for="list">Add to</label>
         <select id="list" name="list" required>

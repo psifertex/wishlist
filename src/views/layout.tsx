@@ -30,6 +30,7 @@ export const Layout: FC<{
           {viewer ? (
             <>
               <a href={`${mainUrl}/app`}>My lists</a>
+              <a href={`${mainUrl}/install`}>Get the button</a>
               {viewer.isAdmin && <a href={`${mainUrl}/app/admin`}>Admin</a>}
               <a href={`${mainUrl}/logout`}>Log out</a>
             </>

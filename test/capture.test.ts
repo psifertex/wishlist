@@ -47,3 +47,12 @@ describe("capture handoff", () => {
     expect(html).toContain("javascript:(function(){var o=&quot;http://gifts.test&quot;");
   });
 });
+
+describe("finding the button", () => {
+  it("links the install page from every logged-in page and the add form", async () => {
+    const admin = new Client(ADMIN);
+    expect(await admin.html("/app")).toContain('href="/install">Get the button');
+    expect(await admin.html("/add")).toContain("Add to Wishlist button</a>");
+    expect(await admin.html("/install")).toContain("Log out");
+  });
+});

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../env";
+import { optionalViewer } from "../lib/auth";
 import { Layout } from "../views/layout";
 import { mainUrl } from "./util";
 
@@ -22,12 +23,12 @@ export function bookmarklet(origin: string): string {
   );
 }
 
-installRoutes.get("/install", (c) => {
+installRoutes.get("/install", async (c) => {
   if (c.get("site").kind !== "main") return c.redirect(`${mainUrl(c)}/install`);
   const origin = mainUrl(c);
   const code = bookmarklet(origin);
   return c.html(
-    <Layout title="Install the Add to Wishlist button">
+    <Layout title="Install the Add to Wishlist button" viewer={await optionalViewer(c)}>
       <h1>Add things from any store</h1>
       <p>
         Open a product page, tap <strong>Add to Wishlist</strong>, and the price, picture and options you picked are
