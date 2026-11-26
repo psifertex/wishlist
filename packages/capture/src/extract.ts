@@ -1,4 +1,4 @@
-import { extractAmazon, isAmazon } from "./amazon";
+import { amazonLayoutReport, extractAmazon, isAmazon } from "./amazon";
 import { extractGeneric, extractJsonLd, extractMeta, genericVariant } from "./structured";
 import type { Capture, Partial } from "./types";
 import { uniq } from "./util";
@@ -31,6 +31,7 @@ export function extract(doc: Document, href: string): Capture {
     asin: pick("asin"),
     format: pick("format"),
     src: layers.find((l) => l.title)?.src,
+    dbg: isAmazon(url) ? amazonLayoutReport(doc) : undefined,
   };
   // Keep Shopify-style variant ids in the saved link.
   const variantId = url.searchParams.get("variant");

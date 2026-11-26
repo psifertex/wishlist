@@ -11,6 +11,9 @@ export interface CaptureData {
   isbn?: string;
   asin?: string;
   format?: BookFormat;
+  /** Which extractor found the title, and (Amazon) the page's element IDs; logged only. */
+  src?: string;
+  dbg?: string;
 }
 
 const httpUrl = (s: unknown): string | undefined => {
@@ -50,6 +53,8 @@ export function decodeCapture(d: string | undefined): CaptureData | null {
     isbn,
     asin: typeof raw.asin === "string" && /^[A-Z0-9]{10}$/.test(raw.asin) ? raw.asin : undefined,
     format,
+    src: typeof raw.src === "string" ? raw.src.slice(0, 20) : undefined,
+    dbg: typeof raw.dbg === "string" ? raw.dbg.replace(/[^\w,:-]/g, "").slice(0, 2000) : undefined,
   };
 }
 

@@ -18,6 +18,8 @@ export interface Capture {
   format?: BookFormat;
   /** Which extractor produced the title/price, for debugging. */
   src?: string;
+  /** Amazon only: element IDs on the page, to diagnose layout changes. */
+  dbg?: string;
 }
 
 export type Partial = Omit<globalThis.Partial<Capture>, "v" | "images"> & { images?: string[] };

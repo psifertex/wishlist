@@ -715,6 +715,21 @@ appRoutes.get("/add", async (c) => {
 
   // Pre-fill from the capture script (?d=) or the CSP fallback (?url=&title=).
   const cap = decodeCapture(c.req.query("d"));
+  if (cap) {
+    // Helps diagnose store layout changes (see amazonLayoutReport in the capture script).
+    console.log(
+      "capture",
+      JSON.stringify({
+        host: cap.url ? new URL(cap.url).hostname : null,
+        src: cap.src,
+        title: !!cap.title,
+        price: cap.priceCents != null,
+        images: cap.images.length,
+        variant: !!cap.variant,
+        dbg: cap.dbg,
+      }),
+    );
+  }
   const fallbackUrl = c.req.query("url");
   const prefill: Partial<Item> = cap
     ? {

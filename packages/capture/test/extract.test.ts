@@ -77,3 +77,25 @@ describe("helpers", () => {
     expect(JSON.parse(json).title).toBe("Zoë’s café");
   });
 });
+
+describe("amazon layouts", () => {
+  it("reads a mobile-style page through the layout-independent fallbacks", () => {
+    const c = extract(load("amazon-mobile.html"), "https://www.amazon.com/dp/B00MHX7JPW?psc=1");
+    expect(c.title).toBe("Bezier Games Ultimate Werewolf");
+    expect(c.price).toBe(906); // not the struck-through $12.95
+    expect(c.images[0]).toBe("https://m.media-amazon.com/images/I/81abcWOLFxL.jpg");
+    expect(c.variant).toBe("Size: Large");
+    expect(c.dbg).toContain("corePrice_mobile_feature_div");
+  });
+
+  it("cleans Amazon's page titles", async () => {
+    const { cleanAmazonTitle } = await import("../src/amazon");
+    expect(cleanAmazonTitle("Amazon.com: Bezier Games Ultimate Werewolf | Villagers : Bezier Games: Toys & Games")).toBe(
+      "Bezier Games Ultimate Werewolf | Villagers",
+    );
+    expect(cleanAmazonTitle("Project Hail Mary: A Novel: Weir, Andy: 9780593135204: Amazon.com: Books")).toBe(
+      "Project Hail Mary: A Novel",
+    );
+    expect(cleanAmazonTitle("Amazon.com")).toBeUndefined();
+  });
+});

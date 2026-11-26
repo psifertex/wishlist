@@ -33,6 +33,15 @@ function price(doc: Document): { cents?: number; currency?: string } {
     const cents = priceToCents(t);
     if (cents) return { cents, currency: currencyFromText(t) };
   }
+  // Any layout (desktop or mobile): the first real price inside Amazon's price
+  // blocks. ".a-text-price" is the struck-through list price, so skip it.
+  for (const el of doc.querySelectorAll(
+    '[id*="corePrice" i] .a-price:not(.a-text-price) .a-offscreen, [id*="apex" i] .a-price:not(.a-text-price) .a-offscreen, [id*="buybox" i] .a-price:not(.a-text-price) .a-offscreen',
+  )) {
+    const t = text(el);
+    const c = priceToCents(t);
+    if (c) return { cents: c, currency: currencyFromText(t) };
+  }
   // Price split into whole + fraction spans with no offscreen copy.
   const whole = text(doc.querySelector("#corePriceDisplay_desktop_feature_div .priceToPay .a-price-whole"));
   const frac = text(doc.querySelector("#corePriceDisplay_desktop_feature_div .priceToPay .a-price-fraction"));
@@ -42,10 +51,21 @@ function price(doc: Document): { cents?: number; currency?: string } {
 
 function images(doc: Document, base: string): string[] {
   const out: (string | undefined)[] = [];
-  for (const sel of ["#landingImage", "#imgBlkFront", "#ebooksImgBlkFront", "#main-image", "#imgTagWrapperId img"]) {
+  for (const sel of [
+    "#landingImage",
+    "#imgBlkFront",
+    "#ebooksImgBlkFront",
+    "#main-image",
+    "#imgTagWrapperId img",
+    'img[data-a-image-name="landingImage"]',
+    "img[data-old-hires]",
+    "img[data-a-hires]",
+    "img[data-a-dynamic-image]",
+  ]) {
     const el = doc.querySelector(sel);
     if (!el) continue;
     out.push(amazonFullSize(absolute(el.getAttribute("data-old-hires"), base) ?? ""));
+    out.push(amazonFullSize(absolute(el.getAttribute("data-a-hires"), base) ?? ""));
     const dyn = el.getAttribute("data-a-dynamic-image");
     if (dyn) {
       try {
@@ -109,6 +129,35 @@ function book(doc: Document, asin: string | undefined): Partial {
   return { format, isbn };
 }
 
+/**
+ * The page's own title, cleaned up. Amazon formats it as
+ * "Amazon.com: <product> : <brand>: <category>" for most products and
+ * "<title>: <author>: <isbn>: Amazon.com: Books" for books.
+ */
+export function cleanAmazonTitle(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+  let t = raw.replace(/\s+/g, " ").trim();
+  t = t.replace(/^Amazon(\.[a-z.]+)?\s*:\s*/i, "");
+  t = t.replace(/\s*:\s*Amazon(\.[a-z.]+)?\s*:.*$/i, "");
+  t = t.split(" : ")[0] ?? t;
+  t = t.replace(/\s*:\s*[\dX-]{10,17}$/i, ""); // trailing ISBN
+  t = t.replace(/\s*:\s*[^:,]+, [^:,]+$/, ""); // trailing "Last, First" author
+  t = t.trim();
+  return t && !/^amazon(\.[a-z.]+)?$/i.test(t) ? t : undefined;
+}
+
+/**
+ * IDs of title/price/image/option-related elements, sent along with Amazon
+ * captures so layout changes (e.g. the mobile site) can be diagnosed from the
+ * server log. Element IDs only, never page text.
+ */
+export function amazonLayoutReport(doc: Document): string {
+  const ids = [...doc.querySelectorAll("[id]")]
+    .map((e) => e.id)
+    .filter((id) => /title|price|image|img|twister|variation|swatch|buybox|apex/i.test(id) && id.length < 50 && !/\d{4,}/.test(id));
+  return uniq(ids).slice(0, 60).join(",");
+}
+
 export function extractAmazon(doc: Document, pageUrl: URL): Partial {
   const asin =
     asinFromUrl(pageUrl) ??
@@ -118,7 +167,13 @@ export function extractAmazon(doc: Document, pageUrl: URL): Partial {
   const canonical = doc.querySelector('link[rel="canonical"]')?.getAttribute("href");
   return {
     src: "amazon",
-    title: text(doc.querySelector("#productTitle")) ?? text(doc.querySelector("#ebooksProductTitle")),
+    title:
+      text(doc.querySelector("#productTitle")) ??
+      text(doc.querySelector("#ebooksProductTitle")) ??
+      text(doc.querySelector("h1#title")) ??
+      text(doc.querySelector('[data-feature-name="title"] h1')) ??
+      cleanAmazonTitle(doc.querySelector('meta[name="title"]')?.getAttribute("content") ?? undefined) ??
+      cleanAmazonTitle(doc.title),
     price: p.cents,
     currency: p.currency,
     images: images(doc, pageUrl.toString()),
