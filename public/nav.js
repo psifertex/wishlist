@@ -27,6 +27,16 @@
       document.querySelectorAll("main [data-login-link]").forEach(function (a) {
         a.textContent = "My lists";
       });
+      // The owner of this list: don't offer the buying view (which would show
+      // what's been bought for them). The main site enforces this too.
+      var banner = document.querySelector("[data-buy-banner]");
+      if (banner && who.slug && banner.getAttribute("data-owner-slug") === who.slug) {
+        banner.textContent = "This is your list. Things people buy for you stay hidden until it's time. ";
+        var edit = document.createElement("a");
+        edit.href = banner.getAttribute("data-edit-url");
+        edit.textContent = "Edit this list";
+        banner.appendChild(edit);
+      }
     })
     .catch(function () { /* stay as-is */ });
 })();

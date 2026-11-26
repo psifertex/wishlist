@@ -251,9 +251,14 @@ async function renderPersonList(c: Context<AppEnv>, person: Person, listSlug: st
     timeZone: c.env.TIMEZONE,
   };
   const owner = isOwnerView(person.id, perspective);
-  const wantsBuying = c.req.query("buying") === "1" && !owner;
   const here = listPath(c, person, list);
   const main = mainUrl(c);
+  // Buying mode only runs on the main host, where the login cookie is visible,
+  // so a logged-in owner is always recognised and never shown their purchases.
+  // Person hostnames can't see that cookie, so they hand off to the main host.
+  const buyUrl = `${main}/${person.slug}/${list.slug}?buying=1`;
+  if (c.req.query("buying") === "1" && c.get("site").kind === "person") return c.redirect(buyUrl);
+  const wantsBuying = c.req.query("buying") === "1" && !owner;
 
   if (wantsBuying && !(await checkBuyerOk(c.env, getCookie(c, BUYER_OK_COOKIE)))) {
     return c.html(
@@ -325,10 +330,10 @@ async function renderPersonList(c: Context<AppEnv>, person: Person, listSlug: st
           <a href={here}>go back</a>.
         </div>
       ) : (
-        <div class="banner">
+        <div class="banner" data-buy-banner data-owner-slug={person.slug} data-edit-url={`${main}/app/lists/${list.id}`}>
           <p style="margin-top:0">Want to get something from this list?</p>
           <div class="actions">
-            <a class="btn primary" href={`${here}?buying=1`}>
+            <a class="btn primary" href={buyUrl}>
               I'm buying a gift
             </a>
             <a class="btn" href={`${main}/app`} data-login-link>

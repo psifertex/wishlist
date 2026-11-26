@@ -243,3 +243,28 @@ describe("login state on person hostnames", () => {
     expect(res.headers.get("access-control-allow-origin")).toBeNull();
   });
 });
+
+describe("spoiler protection on person hostnames", () => {
+  it("hands buying mode to the main host, where a logged-in owner is recognised", async () => {
+    const { admin, person, list } = await bootstrap();
+    await admin.post("/app/admin/hostnames", { op: "add", person: person.id, hostname: "me.example" });
+    const item = await addItem(admin, list.id, "Secret present");
+    await new Client(null).post("/api/claim", { list: list.id, item: item.id, name: "Aunt", back: "/" });
+
+    // Person hostname never renders purchase status; it redirects.
+    const res = await new Client(null, "http://me.example").get("/?buying=1");
+    expect(res.status).toBe(302);
+    expect(res.headers.get("location")).toBe(`http://gifts.test/${person.slug}/${list.slug}?buying=1`);
+    const plain = await new Client(null, "http://me.example").html("/");
+    expect(plain).toContain(`href="http://gifts.test/${person.slug}/${list.slug}?buying=1"`);
+    expect(plain).not.toContain("Already taken");
+
+    // On the main host the owner (logged in) gets the owner view, not purchases.
+    const html = await admin.html(`/${person.slug}/${list.slug}?buying=1`);
+    expect(html).toContain("This is your list");
+    expect(html).not.toContain("Already taken");
+    expect(html).not.toContain("Aunt");
+    // Someone else sees it's taken.
+    expect(await new Client(null).html(`/${person.slug}/${list.slug}?buying=1`)).toContain("Already taken");
+  });
+});
