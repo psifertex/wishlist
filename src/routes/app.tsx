@@ -36,10 +36,23 @@ const requireLogin = createMiddleware<AppEnv>(async (c, next) => {
   if (c.get("site").kind !== "main") return c.redirect(`${mainUrl(c)}${new URL(c.req.url).pathname}`);
   const email = await verifiedEmail(c);
   if (!email) {
+    const configured = !!c.env.ACCESS_TEAM_DOMAIN && !!c.env.ACCESS_AUD;
     return c.html(
-      <Message title="Please log in">
-        <p>Your login wasn't found. Reload this page to log in again.</p>
-      </Message>,
+      configured ? (
+        <Message title="Please log in">
+          <p>Your login wasn't found or has expired. Reload this page to log in again.</p>
+        </Message>
+      ) : (
+        <Message title="Login isn't set up yet">
+          <p>
+            This site's login (Cloudflare Access) hasn't been configured, so nobody can log in yet. Shared list links
+            still work.
+          </p>
+          <p class="muted">
+            Admins: set ACCESS_TEAM_DOMAIN and ACCESS_AUD in the deploy config. See the README.
+          </p>
+        </Message>
+      ),
       401,
     );
   }
