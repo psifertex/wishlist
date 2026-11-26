@@ -219,3 +219,27 @@ describe("logout", () => {
     expect(await new Client(ADMIN).html("/app")).toContain("Log out");
   });
 });
+
+describe("login state on person hostnames", () => {
+  it("person pages load nav.js, and /api/whoami answers only the site's own hostnames", async () => {
+    const { admin, person } = await bootstrap();
+    await admin.post("/app/admin/hostnames", { op: "add", person: person.id, hostname: "me.example" });
+    const page = await new Client(null, "http://me.example").html("/");
+    expect(page).toContain('src="/nav.js" data-main="http://gifts.test"');
+    expect(page).toContain("data-login-link");
+
+    const ask = (who: string | null, origin: string) =>
+      new Client(who).fetch("/api/whoami", { headers: { origin } });
+    let res = await ask(ADMIN, "http://me.example");
+    expect(res.headers.get("access-control-allow-origin")).toBe("http://me.example");
+    expect(res.headers.get("access-control-allow-credentials")).toBe("true");
+    expect(await res.json()).toMatchObject({ loggedIn: true, slug: person.slug, isAdmin: true });
+
+    res = await ask(null, "http://me.example");
+    expect(await res.json()).toEqual({ loggedIn: false });
+
+    res = await ask(ADMIN, "https://evil.example");
+    expect(res.status).toBe(403);
+    expect(res.headers.get("access-control-allow-origin")).toBeNull();
+  });
+});

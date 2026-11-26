@@ -2,7 +2,7 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { Hono, type Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import { getDb } from "../db";
-import { claims, items, listItems, lists, people, type List, type Person } from "../db/schema";
+import { claims, hostnames, items, listItems, lists, people, type List, type Person } from "../db/schema";
 import type { AppEnv, Viewer } from "../env";
 import { optionalViewer } from "../lib/auth";
 import { newId, newToken, sha256Hex } from "../lib/ids";
@@ -139,6 +139,39 @@ publicRoutes.post("/api/claim/:id/undo", async (c) => {
   return c.redirect(`${back}#item-${claim.itemId}`);
 });
 
+/**
+ * Who's logged in, for person-hostname pages (public/nav.js). Those pages are
+ * same-site with the main host, so the browser sends the login cookie with a
+ * credentialed request; CORS allows only this site's own hostnames.
+ */
+publicRoutes.get("/api/whoami", async (c) => {
+  if (c.get("site").kind !== "main") return c.notFound();
+  const origin = c.req.header("origin");
+  if (origin) {
+    let host = "";
+    try {
+      host = new URL(origin).hostname.toLowerCase();
+    } catch {
+      /* ignore */
+    }
+    const known =
+      host === c.env.MAIN_HOST ||
+      !!(await getDb(c.env.DB).select().from(hostnames).where(eq(hostnames.hostname, host)).get());
+    if (!known) return c.json({ error: "unknown origin" }, 403);
+    c.header("access-control-allow-origin", origin);
+    c.header("access-control-allow-credentials", "true");
+    c.header("vary", "Origin");
+  }
+  c.header("cache-control", "no-store");
+  if (await isRateLimited(c.env.RL_PUBLIC, `whoami:${clientIp(c)}`)) return c.json({ loggedIn: false }, 429);
+  const viewer = await optionalViewer(c);
+  return c.json(
+    viewer
+      ? { loggedIn: true, name: viewer.person.displayName, slug: viewer.person.slug, isAdmin: viewer.isAdmin }
+      : { loggedIn: false },
+  );
+});
+
 // Person hostname: /<list-slug>. Main host: /<person-slug> and /<person-slug>/<list-slug>.
 publicRoutes.get("/:a/:b?", async (c) => {
   const site = c.get("site");
@@ -260,7 +293,12 @@ async function renderPersonList(c: Context<AppEnv>, person: Person, listSlug: st
   const back = wantsBuying ? `${here}?buying=1` : here;
 
   return c.html(
-    <Layout title={`${person.displayName}: ${list.name}`} viewer={viewer} mainUrl={main}>
+    <Layout
+      title={`${person.displayName}: ${list.name}`}
+      viewer={viewer}
+      mainUrl={main}
+      checkLogin={c.get("site").kind === "person"}
+    >
       <h1>
         {person.displayName}: {list.name}
       </h1>
@@ -293,7 +331,7 @@ async function renderPersonList(c: Context<AppEnv>, person: Person, listSlug: st
             <a class="btn primary" href={`${here}?buying=1`}>
               I'm buying a gift
             </a>
-            <a class="btn" href={`${main}/app`}>
+            <a class="btn" href={`${main}/app`} data-login-link>
               Log in
             </a>
           </div>

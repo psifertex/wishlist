@@ -7,8 +7,14 @@ export const Layout: FC<{
   /** Absolute URL of the main site, for links from person hostnames. */
   mainUrl?: string;
   head?: Child;
+  /**
+   * Set on person-hostname pages, which can't see the main site's login
+   * cookie: public/nav.js asks the main site who's logged in and updates the
+   * header and "Log in" buttons.
+   */
+  checkLogin?: boolean;
   children?: Child;
-}> = ({ title, viewer, mainUrl = "", head, children }) => (
+}> = ({ title, viewer, mainUrl = "", head, checkLogin, children }) => (
   <html lang="en">
     <head>
       <meta charset="utf-8" />
@@ -19,6 +25,7 @@ export const Layout: FC<{
       <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       {head}
+      {checkLogin && !viewer && <script src="/nav.js" data-main={mainUrl} defer></script>}
     </head>
     <body>
       <header class="top">
@@ -26,7 +33,7 @@ export const Layout: FC<{
           <img src="/logo.svg" alt="" />
           Wishlist
         </a>
-        <nav>
+        <nav id="site-nav">
           {viewer ? (
             <>
               <a href={`${mainUrl}/app`}>My lists</a>
@@ -35,7 +42,9 @@ export const Layout: FC<{
               <a href={`${mainUrl}/logout`}>Log out</a>
             </>
           ) : (
-            <a href={`${mainUrl}/app`}>Log in</a>
+            <a href={`${mainUrl}/app`} data-login-link>
+              Log in
+            </a>
           )}
         </nav>
       </header>
