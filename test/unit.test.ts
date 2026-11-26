@@ -44,3 +44,13 @@ describe("helpers", () => {
     expect(isIsoDate("2026-02-28")).toBe(true);
   });
 });
+
+describe("picture URLs", () => {
+  it("prefers the stored copy and falls back to an https source link", async () => {
+    const { imageUrl } = await import("../src/lib/images");
+    const env = { IMAGE_BASE_URL: undefined } as unknown as import("../src/env").Env;
+    expect(imageUrl(env, "items/a.jpg", "https://x/y.jpg")).toBe("/img/items/a.jpg");
+    expect(imageUrl(env, null, "https://x/y.jpg")).toBe("https://x/y.jpg");
+    expect(imageUrl(env, null, "javascript:alert(1)")).toBeNull();
+  });
+});

@@ -73,12 +73,12 @@ gh secret set FAMILY_CONFIG_JSONC < config/family.local.jsonc
 Do this once, from your own machine, signed in with `pnpm exec wrangler login` (a browser sign-in, so no long-lived token with zone access is created):
 
 1. Make sure every domain you'll use is a zone in your Cloudflare account, and that the hostnames you picked have no existing DNS records.
-2. Enable R2 in the dashboard (R2 Object Storage → Enable). Cloudflare asks for a payment method; the app's caps keep it well inside the free tier.
+2. Optional: enable R2 in the dashboard (R2 Object Storage → Enable) so pictures are stored. Cloudflare asks for a payment method; the app's caps keep it well inside the free tier. Without R2, remove `r2_buckets` from `wrangler.deploy.jsonc`: pictures are then shown from the store's own link and photo upload is hidden.
 3. Create the database and bucket, and put the database ID into `wrangler.deploy.jsonc`:
 
    ```sh
    pnpm exec wrangler d1 create wishlist
-   pnpm exec wrangler r2 bucket create wishlist-images
+   pnpm exec wrangler r2 bucket create wishlist-images   # only if you enabled R2
    ```
 
 4. Apply migrations, load your family config, and deploy once with routes, which attaches the custom domains:

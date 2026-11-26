@@ -52,7 +52,7 @@ publicRoutes.get("/", async (c) => {
 });
 
 publicRoutes.get("/img/:key{.+}", async (c) => {
-  const obj = await c.env.IMAGES.get(c.req.param("key"));
+  const obj = await c.env.IMAGES?.get(c.req.param("key"));
   if (!obj) return c.notFound();
   const headers = new Headers();
   obj.writeHttpMetadata(headers);
@@ -336,7 +336,7 @@ function ItemCard(props: {
 }) {
   const { c, v, list, buying, owner, back, savedName, offList } = props;
   const { item } = v;
-  const img = imageUrl(c.env, item.imageKey);
+  const img = imageUrl(c.env, item.imageKey, item.sourceImageUrl);
   const done = v.remainingQty === 0;
   const showStatus = buying || owner;
   return (

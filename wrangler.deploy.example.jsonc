@@ -11,7 +11,11 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "wishlist", "database_id": "<from: wrangler d1 create wishlist>", "migrations_dir": "migrations" }
   ],
+  // Optional. Without R2, pictures are shown from the store's own image link
+  // instead of a stored copy, and photo upload is hidden. R2 needs a payment
+  // method on the Cloudflare account.
   "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "wishlist-images" }],
+  "workers_dev": false,
   "ratelimits": [
     { "name": "RL_PUBLIC", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
     { "name": "RL_CLAIM", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
@@ -29,10 +33,12 @@
     "ENVIRONMENT": "production",
     "MAIN_HOST": "gifts.example.com",
     "TIMEZONE": "America/New_York",
-    "ACCESS_TEAM_DOMAIN": "<your-team>.cloudflareaccess.com",
-    "ACCESS_AUD": "<Application Audience (AUD) tag from the Access app>",
-    "BOOTSTRAP_ADMIN_EMAIL": "<your email; becomes admin on first login if no admin exists>",
-    "TURNSTILE_SITE_KEY": "<optional>",
-    "IMAGE_BASE_URL": "<optional: public R2 custom domain, e.g. https://img.gifts.example.com>"
+    // Becomes an admin on first login while no admin exists.
+    "BOOTSTRAP_ADMIN_EMAIL": "you@example.com"
+    // Add these once they exist (leave them out until then; placeholder values break login or images):
+    // "ACCESS_TEAM_DOMAIN": "your-team.cloudflareaccess.com",
+    // "ACCESS_AUD": "Application Audience (AUD) tag from the Access app",
+    // "TURNSTILE_SITE_KEY": "…",   (plus: wrangler secret put TURNSTILE_SECRET)
+    // "IMAGE_BASE_URL": "https://img.gifts.example.com"   (public R2 custom domain)
   }
 }

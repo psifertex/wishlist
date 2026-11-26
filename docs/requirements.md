@@ -284,8 +284,10 @@ Free-plan failure modes, for context:
 - **Runtime:** a single Cloudflare Worker. Hono with server-rendered JSX and a
   little plain JS for interactivity. No SPA build.
 - **Database:** D1 with Drizzle ORM and migrations.
-- **Images:** R2. The chosen image is downloaded once and served from our
-  domain, so links don't break when stores change.
+- **Images:** R2, optional. The chosen image is downloaded once and served from our
+  domain, so links don't break when stores change. Without R2 (it needs a
+  payment method), the app shows the store's own image link instead and hides
+  photo upload, which keeps self-hosting possible without a card.
 - **Auth:** Cloudflare Access protects only the logged-in paths on
   `gifts.example.com`. The Worker verifies the `Cf-Access-Jwt-Assertion`
   header against the team's public keys. Public hostnames never need Access;

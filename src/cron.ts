@@ -44,7 +44,7 @@ export async function runDaily(env: Env, now = Date.now()): Promise<{ received: 
     await db.delete(items).where(inArray(items.id, purge));
     // Their pictures too, so deleted items don't leave paid-for storage behind.
     const keys = purgeRows.map((h) => h.imageKey).filter((k): k is string => !!k);
-    for (let i = 0; i < keys.length; i += 1000) await env.IMAGES.delete(keys.slice(i, i + 1000));
+    for (let i = 0; i < keys.length; i += 1000) await env.IMAGES?.delete(keys.slice(i, i + 1000));
   }
 
   // Usage counters older than 30 days aren't needed.

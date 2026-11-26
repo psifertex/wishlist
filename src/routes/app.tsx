@@ -407,7 +407,7 @@ appRoutes.get("/app/lists/:id", async (c) => {
 
 function ManageItem(props: { c: Context<AppEnv>; v: ItemView; list: List; first: boolean; last: boolean; showClaims: boolean }) {
   const { c, v, list, first, last, showClaims } = props;
-  const img = imageUrl(c.env, v.item.imageKey);
+  const img = imageUrl(c.env, v.item.imageKey, v.item.sourceImageUrl);
   return (
     <li class="item">
       {img ? <img src={img} alt="" loading="lazy" /> : <div class="noimg">🎁</div>}
@@ -607,7 +607,7 @@ function ItemFields(props: { item?: Partial<Item>; priceRequired?: boolean }) {
  * photo. public/add.js downloads and shrinks the chosen image in the browser
  * when the store allows it; otherwise the Worker downloads it (R27a).
  */
-function ImageFields(props: { candidates?: string[]; keepLabel?: string }) {
+function ImageFields(props: { candidates?: string[]; keepLabel?: string; canUpload?: boolean }) {
   const candidates = props.candidates ?? [];
   return (
     <fieldset class="card">
@@ -631,8 +631,12 @@ function ImageFields(props: { candidates?: string[]; keepLabel?: string }) {
           <input id="image_url" type="url" name="image_url" maxlength={2000} placeholder={props.keepLabel ?? "https://…"} />
         </>
       )}
-      <label for="image_file">…or upload a photo</label>
-      <input id="image_file" type="file" name="image_file" accept="image/*" />
+      {props.canUpload !== false && (
+        <>
+          <label for="image_file">…or upload a photo</label>
+          <input id="image_file" type="file" name="image_file" accept="image/*" />
+        </>
+      )}
     </fieldset>
   );
 }
@@ -660,6 +664,11 @@ async function imageFromForm(
   c: Context<AppEnv>,
   form: Record<string, string | File | (string | File)[]>,
 ): Promise<{ key?: string; source?: string | null; error?: string }> {
+  if (!c.env.IMAGES) {
+    // No picture storage: remember the chosen link and show it directly.
+    const link = str(form, "image_url", 2000);
+    return link && /^https:\/\//.test(link) ? { source: link } : {};
+  }
   const file = form.image_file;
   if (file instanceof File && file.size > 0) {
     if (file.size > CAPS.imageBytes) return { error: "That photo is larger than 2 MB." };
@@ -711,7 +720,7 @@ appRoutes.get("/add", async (c) => {
           ))}
         </select>
         <ItemFields item={prefill} priceRequired={priceRequired} />
-        <ImageFields candidates={candidates} />
+        <ImageFields candidates={candidates} canUpload={!!c.env.IMAGES} />
         <p>
           <button class="primary" type="submit">
             Add to list
@@ -766,7 +775,7 @@ appRoutes.get("/app/items/:id", async (c) => {
   const memberOf = new Set(
     (await db.select({ id: listItems.listId }).from(listItems).where(eq(listItems.itemId, item.id)).all()).map((r) => r.id),
   );
-  const img = imageUrl(c.env, item.imageKey);
+  const img = imageUrl(c.env, item.imageKey, item.sourceImageUrl);
   const back = c.req.query("list");
   return c.html(
     <Layout title={item.title} viewer={viewer} head={<script src="/add.js" defer></script>}>
@@ -779,7 +788,7 @@ appRoutes.get("/app/items/:id", async (c) => {
       <form method="post" action={`/app/items/${item.id}`} enctype="multipart/form-data" class="card" data-image-form>
         <input type="hidden" name="back" value={back ?? ""} />
         <ItemFields item={item} />
-        <ImageFields keepLabel={img ? "Leave empty to keep the current picture" : undefined} />
+        <ImageFields keepLabel={img ? "Leave empty to keep the current picture" : undefined} canUpload={!!c.env.IMAGES} />
         {img && (
           <label class="check">
             <input type="checkbox" name="remove_image" value="1" /> Remove the current image
@@ -819,14 +828,14 @@ appRoutes.post("/app/items/:id", async (c) => {
   const values = itemValues(form);
   const image = await imageFromForm(c, form);
   const removeImage = str(form, "remove_image") === "1";
-  if ((image.key || removeImage) && item.imageKey) await c.env.IMAGES.delete(item.imageKey);
+  if ((image.key || removeImage) && item.imageKey) await c.env.IMAGES?.delete(item.imageKey);
   await db
     .update(items)
     .set({
       ...values,
       priceCapturedAt: values.priceCents === item.priceCents ? item.priceCapturedAt : values.priceCents != null ? Date.now() : null,
       imageKey: image.key ?? (removeImage ? null : item.imageKey),
-      sourceImageUrl: image.key ? (image.source ?? null) : removeImage ? null : item.sourceImageUrl,
+      sourceImageUrl: image.key || image.source ? (image.source ?? null) : removeImage ? null : item.sourceImageUrl,
     })
     .where(eq(items.id, item.id));
 
@@ -868,7 +877,7 @@ appRoutes.post("/app/items/:id/delete", async (c) => {
     // R15: someone may already have bought it. Hide it from the owner only.
     await db.update(items).set({ ownerHiddenAt: Date.now() }).where(eq(items.id, item.id));
   } else {
-    if (item.imageKey) await c.env.IMAGES.delete(item.imageKey);
+    if (item.imageKey) await c.env.IMAGES?.delete(item.imageKey);
     await db.delete(items).where(eq(items.id, item.id));
   }
   const back = str(form, "back", 40);
@@ -906,7 +915,7 @@ appRoutes.get("/app/received", async (c) => {
       <ul class="items">
         {rows.map((it) => (
           <li class="item">
-            {imageUrl(c.env, it.imageKey) ? <img src={imageUrl(c.env, it.imageKey)!} alt="" /> : <div class="noimg">🎁</div>}
+            {imageUrl(c.env, it.imageKey, it.sourceImageUrl) ? <img src={imageUrl(c.env, it.imageKey, it.sourceImageUrl)!} alt="" /> : <div class="noimg">🎁</div>}
             <div>
               <h3>{it.title}</h3>
               <div class="meta">

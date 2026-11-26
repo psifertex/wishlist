@@ -2,7 +2,8 @@ import type { Person } from "./db/schema";
 
 export interface Env {
   DB: D1Database;
-  IMAGES: R2Bucket;
+  /** Optional: without R2, pictures are shown from the store's own image link instead of a stored copy. */
+  IMAGES?: R2Bucket;
   RL_PUBLIC?: RateLimit;
   RL_CLAIM?: RateLimit;
   RL_WRITE?: RateLimit;

@@ -79,20 +79,20 @@ describe("daily purge", () => {
   it("deletes the picture of an owner-deleted item once its claims are undone", async () => {
     const { admin, person, list } = await setup();
     const item = await addItem(admin, list.id, "With picture");
-    await env.IMAGES.put("items/test-purge.jpg", new Uint8Array(10));
+    await env.IMAGES!.put("items/test-purge.jpg", new Uint8Array(10));
     await env.DB.prepare("UPDATE items SET image_key = 'items/test-purge.jpg' WHERE id = ?").bind(item.id).run();
 
     const buyer = new Client(null);
     const back = `/${person.slug}/${list.slug}?buying=1`;
     await buyer.post("/api/claim", { list: list.id, item: item.id, name: "Aunt", back });
     await admin.post(`/app/items/${item.id}/delete`, {});
-    expect(await env.IMAGES.head("items/test-purge.jpg")).not.toBeNull(); // still claimed: kept
+    expect(await env.IMAGES!.head("items/test-purge.jpg")).not.toBeNull(); // still claimed: kept
 
     const [claim] = await liveClaims(item.id);
     await buyer.post(`/api/claim/${claim!.id}/undo`, { back });
     const r = await runDaily(env, Date.now() + 1000);
     expect(r.purged).toBe(1);
     expect(await q("SELECT * FROM items WHERE id = ?", item.id)).toHaveLength(0);
-    expect(await env.IMAGES.head("items/test-purge.jpg")).toBeNull();
+    expect(await env.IMAGES!.head("items/test-purge.jpg")).toBeNull();
   });
 });

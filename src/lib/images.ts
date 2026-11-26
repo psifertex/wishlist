@@ -10,8 +10,12 @@ const EXT: Record<string, string> = {
   "image/avif": "avif",
 };
 
-export function imageUrl(env: Env, key: string | null | undefined): string | null {
-  if (!key) return null;
+/**
+ * URL to show for an item's picture: the stored copy when there is one,
+ * otherwise the original link (used when R2 isn't set up, or saving failed).
+ */
+export function imageUrl(env: Env, key: string | null | undefined, sourceUrl?: string | null): string | null {
+  if (!key) return sourceUrl && /^https:\/\//.test(sourceUrl) ? sourceUrl : null;
   return env.IMAGE_BASE_URL ? `${env.IMAGE_BASE_URL.replace(/\/$/, "")}/${key}` : `/img/${key}`;
 }
 
@@ -19,6 +23,7 @@ export type SaveImageResult = { ok: true; key: string } | { ok: false; reason: s
 
 /** Stores image bytes in R2 after type, size and budget checks (R31, R32). */
 export async function saveImageBytes(env: Env, bytes: ArrayBuffer, contentType: string): Promise<SaveImageResult> {
+  if (!env.IMAGES) return { ok: false, reason: "Picture storage isn't set up on this site." };
   const type = contentType.split(";")[0]!.trim().toLowerCase();
   const ext = EXT[type];
   if (!ext) return { ok: false, reason: "That file isn't a supported image type." };
@@ -38,6 +43,7 @@ export async function saveImageFromUrl(env: Env, url: string): Promise<SaveImage
     return { ok: false, reason: "Invalid image URL." };
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return { ok: false, reason: "Invalid image URL." };
+  if (!env.IMAGES) return { ok: false, reason: "Picture storage isn't set up on this site." };
   if (!(await consumeBudget(env.DB, "outbound_fetch"))) return { ok: false, reason: "Daily fetch limit reached." };
   let res: Response;
   try {
