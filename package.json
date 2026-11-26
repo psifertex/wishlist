@@ -1,0 +1,28 @@
+{
+  "name": "wishlist",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm build:capture && wrangler dev",
+    "build:capture": "pnpm --filter @wishlist/capture build",
+    "ship": "pnpm build:capture && wrangler deploy -c wrangler.deploy.jsonc",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote -c wrangler.deploy.jsonc",
+    "typecheck": "tsc --noEmit -p . && pnpm --filter @wishlist/capture typecheck",
+    "test": "vitest run && pnpm --filter @wishlist/capture test"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.22",
+    "jose": "^6.2.18"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.9.2",
+    "@cloudflare/workers-types": "^5.20261125.1",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12",
+    "wrangler": "^4.168.0"
+  }
+}

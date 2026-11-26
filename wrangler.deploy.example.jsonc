@@ -1,0 +1,38 @@
+// Copy to wrangler.deploy.jsonc (gitignored), fill in your values, then run
+//   pnpm ship
+// Secrets are set separately:
+//   wrangler secret put TURNSTILE_SECRET -c wrangler.deploy.jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wishlist",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "public", "run_worker_first": false },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "wishlist", "database_id": "<from: wrangler d1 create wishlist>", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [{ "binding": "IMAGES", "bucket_name": "wishlist-images" }],
+  "ratelimits": [
+    { "name": "RL_PUBLIC", "namespace_id": "1001", "simple": { "limit": 30, "period": 60 } },
+    { "name": "RL_CLAIM", "namespace_id": "1002", "simple": { "limit": 10, "period": 60 } },
+    { "name": "RL_WRITE", "namespace_id": "1003", "simple": { "limit": 20, "period": 60 } }
+  ],
+  "triggers": { "crons": ["17 8 * * *"] },
+  // One entry per hostname: the main site plus each person's public hostname.
+  // Each person's hostname also needs a row in the hostnames table, which
+  // admins manage in the app.
+  "routes": [
+    { "pattern": "gifts.example.com", "custom_domain": true },
+    { "pattern": "alice.gifts.example.com", "custom_domain": true }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "MAIN_HOST": "gifts.example.com",
+    "TIMEZONE": "America/New_York",
+    "ACCESS_TEAM_DOMAIN": "<your-team>.cloudflareaccess.com",
+    "ACCESS_AUD": "<Application Audience (AUD) tag from the Access app>",
+    "BOOTSTRAP_ADMIN_EMAIL": "<your email; becomes admin on first login if no admin exists>",
+    "TURNSTILE_SITE_KEY": "<optional>",
+    "IMAGE_BASE_URL": "<optional: public R2 custom domain, e.g. https://img.gifts.example.com>"
+  }
+}
